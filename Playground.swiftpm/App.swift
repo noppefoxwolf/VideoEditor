@@ -1,5 +1,6 @@
 import SwiftUI
 import VideoEditor
+import PhotosUI
 
 @main
 struct App: SwiftUI.App {
@@ -57,15 +58,23 @@ class ViewController: UIViewController {
             ),
         ])
         
-        button.addAction(UIAction { _ in
-            self.present()
+        button.addAction(UIAction { [unowned self] _ in
+            presentPicker()
         }, for: .primaryActionTriggered)
     }
     
+    func presentPicker() {
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.selectionLimit = 1
+        configuration.filter = .videos
+        let vc = PHPickerViewController(configuration: configuration)
+        vc.delegate = self
+        present(vc, animated: true)
+    }
     
-    func present() {
+    func presentEditor(url: URL) {
         let vc = VideoEditorController()
-        vc.videoPath = Bundle.main.url(forResource: "file_example_MP4_640_3MG", withExtension: "mp4")!.path()
+        vc.videoPath = url.path()
         vc.videoMaximumDuration = 5
         vc.initialSelectedRange = selectedRange
         vc.editorDelegate = self
@@ -85,6 +94,29 @@ extension ViewController: VideoEditorControllerDelegate {
     
     func videoEditorControllerDidCancel(_ editor: VideoEditorController) {
         editor.dismiss(animated: true)
+    }
+}
+
+extension ViewController: PHPickerViewControllerDelegate {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        
+        guard let result = results.first else { return }
+        result.itemProvider.loadFileRepresentation(for: .movie) { url, _, error in
+            let url = url!
+            let tempDirectory = try! FileManager.default.url(
+                for: .itemReplacementDirectory,
+                in: .userDomainMask,
+                appropriateFor: url,
+                create: true
+            )
+            let destURL = tempDirectory.appending(path: url.lastPathComponent)
+            try? FileManager.default.removeItem(at: destURL)
+            try! FileManager.default.moveItem(at: url, to: destURL)
+            DispatchQueue.main.async {
+                self.presentEditor(url: destURL)
+            }
+        }
     }
 }
 

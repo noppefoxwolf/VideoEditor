@@ -57,6 +57,7 @@ final class VideoTrimmer: UIControl {
         range = CMTimeRange(start: .zero, duration: duration)
         selectedRange = CMTimeRange(start: .zero, duration: min(duration, maxDuration))
         lastKnownViewSizeForThumbnailGeneration = .zero
+        self.asset = asset
     }
     
     // the video composition to use
@@ -95,9 +96,9 @@ final class VideoTrimmer: UIControl {
     }
     
     func setProgressIndicatorMode(_ mode: ProgressIndicatorMode, animated: Bool) {
-        guard progressIndicatorMode != mode else {return}
+        guard progressIndicatorMode != mode else { return }
         
-        if animated == true {
+        if animated {
             UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction], animations: {
                 self.progressIndicatorMode = mode
                 self.layoutIfNeeded()
@@ -112,10 +113,10 @@ final class VideoTrimmer: UIControl {
     var progress: CMTime = .zero
     
     func setProgress(_ progress: CMTime, animated: Bool) {
-        guard CMTimeCompare(self.progress, progress) != 0 else {return}
+        guard CMTimeCompare(self.progress, progress) != 0 else { return }
         
         self.progress = progress
-        if animated == true {
+        if animated {
             UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction], animations: {
                 self.layoutIfNeeded()
             })
@@ -164,7 +165,7 @@ final class VideoTrimmer: UIControl {
     
     // the range that's currently visible: could be less than "range" when zoomed in
     var visibleRange: CMTimeRange  {
-        isZoomedIn == true ? zoomedInRange : range
+        isZoomedIn ? zoomedInRange : range
     }
     
     // the time that's currently selected by the user when trimming
@@ -279,10 +280,10 @@ final class VideoTrimmer: UIControl {
     
     private func regenerateThumbnailsIfNeeded() async throws {
         let size = bounds.size
-        guard size.width > 0 && size.height > 0 else {return}
-        guard lastKnownViewSizeForThumbnailGeneration != size || CMTimeRangeEqual(lastKnownThumbnailRange, visibleRange) == false else {return}
-        guard let asset else {return}
-        guard let track = try await asset.loadTracks(withMediaType: .video).first else {return}
+        guard size.width > 0 && size.height > 0 else { return }
+        guard lastKnownViewSizeForThumbnailGeneration != size || !CMTimeRangeEqual(lastKnownThumbnailRange, visibleRange) else { return }
+        guard let asset else { return }
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else { return }
         
         lastKnownViewSizeForThumbnailGeneration = size
         lastKnownThumbnailRange = visibleRange
@@ -340,7 +341,7 @@ final class VideoTrimmer: UIControl {
             DispatchQueue.main.async {
                 seenIndex += 1
                 
-                guard let cgImage = cgImage else {return}
+                guard let cgImage = cgImage else { return }
                 let image = UIImage(cgImage: cgImage)
                 
                 let imageView = newThumbnails[seenIndex - 1].imageView
@@ -381,9 +382,9 @@ final class VideoTrimmer: UIControl {
     
     private func startZoomWaitTimer() {
         stopZoomWaitTimer()
-        guard isZoomedIn == false else {return}
+        guard !isZoomedIn else { return }
         zoomWaitTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false, block: { [weak self] _ in
-            guard let self = self else {return}
+            guard let self else { return }
             self.stopZoomWaitTimer()
             self.zoomIfNeeded()
         })
@@ -401,7 +402,7 @@ final class VideoTrimmer: UIControl {
     }
     
     private func zoomIfNeeded() {
-        guard isZoomedIn == false else {return}
+        guard !isZoomedIn else { return }
         
         let size = bounds.size
         let inset = thumbView.chevronWidth + horizontalInset
@@ -507,7 +508,7 @@ final class VideoTrimmer: UIControl {
                 didClamp = true
             }
             
-            if didClamp == true && didClamp != didClampWhilePanning {
+            if didClamp && didClamp != didClampWhilePanning {
                 impactFeedbackGenerator.impactOccurred()
             }
             didClampWhilePanning = didClamp
@@ -575,7 +576,7 @@ final class VideoTrimmer: UIControl {
             }
             
             
-            if didClamp == true && didClamp != didClampWhilePanning {
+            if didClamp && didClamp != didClampWhilePanning {
                 impactFeedbackGenerator.impactOccurred()
             } else {
                 //					if didClamp == false && CMTimeCompare(progress, time) == 0 && CMTimeCompare(progress, range.start) != 0 && CMTimeCompare(progress, range.end) != 0 {
@@ -637,7 +638,7 @@ final class VideoTrimmer: UIControl {
                 didClamp = true
             }
             
-            if didClamp == true && didClamp != didClampWhilePanning {
+            if didClamp && didClamp != didClampWhilePanning {
                 impactFeedbackGenerator.impactOccurred()
             } else {
                 //					if didClamp == false && CMTimeCompare(progress, time) == 0 && CMTimeCompare(progress, range.start) != 0 && CMTimeCompare(progress, range.end) != 0 {
@@ -694,16 +695,16 @@ final class VideoTrimmer: UIControl {
         wrapperView.frame = rect
         thumbView.frame = CGRect(x: left, y: 0, width: max(right - left, inset * 2), height: size.height)
         
-        let isZoomedToEnd = (trimmingState == .leading && isZoomedIn == true)
+        let isZoomedToEnd = (trimmingState == .leading && isZoomedIn)
         
-        let thumbnailOffset = (isZoomedIn == true ? horizontalInset + inset + 6 : 0)
+        let thumbnailOffset = (isZoomedIn ? horizontalInset + inset + 6 : 0)
         let coverOffset = thumbnailOffset - horizontalInset
-        let coverStartOffset = (isZoomedIn == false ? inset : 0)
+        let coverStartOffset = (!isZoomedIn ? inset : 0)
         
         let thumbnailRect = rect.insetBy(dx: horizontalInset - thumbnailOffset, dy: thumbView.edgeHeight)
         thumbnailClipView.frame = rect
         thumbnailWrapperView.frame = thumbnailRect
-        thumbnailTrackView.frame = CGRect(origin: .zero, size: CGSize(width: thumbnailRect.width - (isZoomedToEnd == false ? inset : 0), height: thumbnailRect.height))
+        thumbnailTrackView.frame = CGRect(origin: .zero, size: CGSize(width: thumbnailRect.width - (!isZoomedToEnd ? inset : 0), height: thumbnailRect.height))
         thumbnailLeadingCoverView.frame = CGRect(x: coverStartOffset, y: 0, width: left + inset * 0.5 + coverOffset - coverStartOffset, height: thumbnailRect.height)
         thumbnailTrailingCoverView.frame = CGRect(x: right - inset * 0.5 + coverOffset, y: 0, width: thumbnailRect.width - coverStartOffset - (right - inset * 0.5 + coverOffset), height: thumbnailRect.height)
         
