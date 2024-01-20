@@ -194,15 +194,20 @@ final class VideoTrimmer: UIControl {
     private var thumbnails = Array<Thumbnail>()
     private var generator: AVAssetImageGenerator?
     
+    #if os(iOS)
     let selectionFeedbackGenerator = UISelectionFeedbackGenerator()
     let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .heavy)
+    #endif
+    
     private var didClampWhilePanning = false
     
     
     // MARK: - Private
     private func setup() {
+        #if os(iOS)
         selectionFeedbackGenerator.prepare()
         impactFeedbackGenerator.prepare()
+        #endif
         
         addSubview(thumbnailClipView)
         thumbnailClipView.addSubview(thumbnailWrapperView)
@@ -377,7 +382,7 @@ final class VideoTrimmer: UIControl {
         let ratio = visibleDurationInSeconds != 0 ? availableWidth / visibleDurationInSeconds : 0
         
         let location = CGFloat(offset.seconds) * ratio
-        return SnapToDevicePixels(location) + inset
+        return SnapToDevicePixels(location, scale: traitCollection.displayScale) + inset
     }
     
     private func startZoomWaitTimer() {
@@ -426,7 +431,9 @@ final class VideoTrimmer: UIControl {
         isZoomedIn = true
         animateChanges()
         
+        #if os(iOS)
         selectionFeedbackGenerator.selectionChanged()
+        #endif
     }
     
     private func animateChanges() {
@@ -440,7 +447,9 @@ final class VideoTrimmer: UIControl {
     
     private func startPanning() {
         sendActions(for: Self.didBeginTrimming)
+#if os(iOS)
         selectionFeedbackGenerator.selectionChanged()
+        #endif
         
         didClampWhilePanning = false
         
@@ -509,7 +518,9 @@ final class VideoTrimmer: UIControl {
             }
             
             if didClamp && didClamp != didClampWhilePanning {
+#if os(iOS)
                 impactFeedbackGenerator.impactOccurred()
+#endif
             }
             didClampWhilePanning = didClamp
             
@@ -519,8 +530,9 @@ final class VideoTrimmer: UIControl {
         }
         switch sender.state {
         case .began:
-            
+#if os(iOS)
             selectionFeedbackGenerator.selectionChanged()
+            #endif
             didClampWhilePanning = false
             
             isScrubbing = true
@@ -577,7 +589,9 @@ final class VideoTrimmer: UIControl {
             
             
             if didClamp && didClamp != didClampWhilePanning {
+#if os(iOS)
                 impactFeedbackGenerator.impactOccurred()
+                #endif
             } else {
                 //					if didClamp == false && CMTimeCompare(progress, time) == 0 && CMTimeCompare(progress, range.start) != 0 && CMTimeCompare(progress, range.end) != 0 {
                 //						impactFeedbackGenerator?.impactOccurred(intensity: 0.5)
@@ -639,7 +653,9 @@ final class VideoTrimmer: UIControl {
             }
             
             if didClamp && didClamp != didClampWhilePanning {
+#if os(iOS)
                 impactFeedbackGenerator.impactOccurred()
+                #endif
             } else {
                 //					if didClamp == false && CMTimeCompare(progress, time) == 0 && CMTimeCompare(progress, range.start) != 0 && CMTimeCompare(progress, range.end) != 0 {
                 //						impactFeedbackGenerator?.impactOccurred(intensity: 0.5)
@@ -758,12 +774,12 @@ final class VideoTrimmer: UIControl {
 
 // MARK: -
 
-fileprivate func SnapToDevicePixels(_ value: CGFloat, scale: CGFloat? = nil) -> CGFloat {
-    let actualScale = scale ?? UIScreen.main.scale
+fileprivate func SnapToDevicePixels(_ value: CGFloat, scale: CGFloat) -> CGFloat {
+    let actualScale = scale
     return round(value * actualScale) / actualScale
 }
 
-fileprivate func SnapToDevicePixels(_ rect: CGRect, scale: CGFloat? = nil) -> CGRect {
+fileprivate func SnapToDevicePixels(_ rect: CGRect, scale: CGFloat) -> CGRect {
     return CGRect(x: SnapToDevicePixels(rect.origin.x, scale: scale),
                   y: SnapToDevicePixels(rect.origin.y, scale: scale),
                   width: SnapToDevicePixels(rect.maxX - rect.minX, scale: scale),
@@ -771,7 +787,7 @@ fileprivate func SnapToDevicePixels(_ rect: CGRect, scale: CGFloat? = nil) -> CG
 }
 
 fileprivate extension CGRect {
-    func snappedToDevicePixels(scale: CGFloat? = nil) -> CGRect {
+    func snappedToDevicePixels(scale: CGFloat) -> CGRect {
         return SnapToDevicePixels(self, scale: scale)
     }
 }
@@ -781,7 +797,7 @@ fileprivate extension CGSize {
         CGSize(width: ceil(width), height: ceil((height)))
     }
     
-    func snappedToDevicePixels(scale: CGFloat? = nil) -> CGSize {
+    func snappedToDevicePixels(scale: CGFloat) -> CGSize {
         CGSize(width: SnapToDevicePixels(width, scale: scale), height: SnapToDevicePixels(height, scale: scale))
     }
     
