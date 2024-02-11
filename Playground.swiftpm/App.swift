@@ -75,6 +75,7 @@ class ViewController: UIViewController {
     func presentEditor(url: URL) {
         let vc = VideoEditorController()
         vc.videoPath = url.path()
+        vc.videoQuality = nil
         vc.videoMaximumDuration = 5
         vc.initialSelectedRange = selectedRange
         vc.editorDelegate = self
@@ -102,7 +103,7 @@ extension ViewController: PHPickerViewControllerDelegate {
         picker.dismiss(animated: true)
         
         guard let result = results.first else { return }
-        result.itemProvider.loadFileRepresentation(for: .movie) { url, _, error in
+        _ = result.itemProvider.loadFileRepresentation(for: .movie) { url, _, error in
             let url = url!
             let tempDirectory = try! FileManager.default.url(
                 for: .itemReplacementDirectory,

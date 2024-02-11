@@ -10,16 +10,8 @@ public protocol VideoEditorControllerDelegate: AnyObject {
 public final class VideoEditorController: UINavigationController {
     public var videoPath: String = ""
     public var videoMaximumDuration: TimeInterval = 600
-    public enum QualityType {
-        case typeHigh
-        case typeMedium
-        case typeLow
-        case type640x480
-        case typeIFrame1280x720
-        case typeIFrame960x540
-    }
     
-    public var videoQuality: QualityType = .typeMedium
+    public var videoQuality: QualityType? = .typeMedium
     public var initialSelectedRange: CMTimeRange? = nil
     public weak var editorDelegate: (any VideoEditorControllerDelegate)? = nil
     
@@ -40,27 +32,10 @@ public final class VideoEditorController: UINavigationController {
         let videoURL = URL(filePath: videoPath)
         let vc = EditVideoViewController(
             videoURL: videoURL,
-            videoQuality: makeVideoQuality(),
+            videoQuality: videoQuality,
             videoMaximumDuration: makeMaxDuration()
         )
         setViewControllers([vc], animated: false)
-    }
-    
-    func makeVideoQuality() -> String {
-        switch videoQuality {
-        case .typeHigh:
-            return AVAssetExportPresetHighestQuality
-        case .typeMedium:
-            return AVAssetExportPresetMediumQuality
-        case .typeLow:
-            return AVAssetExportPresetLowQuality
-        case .type640x480:
-            return AVAssetExportPreset640x480
-        case .typeIFrame1280x720:
-            return AVAssetExportPreset1280x720
-        case .typeIFrame960x540:
-            return AVAssetExportPreset960x540
-        }
     }
     
     func makeMaxDuration() -> CMTime {
@@ -72,7 +47,7 @@ import Combine
 
 final class EditVideoViewController: UIViewController {
     
-    let playerView = PlayerView()
+    let playerView = AVPlayerView()
     let trimmer = VideoTrimmer()
     let playbackButton = UIBarButtonItem(image: nil)
     var cancellables: Set<AnyCancellable> = []
@@ -80,7 +55,7 @@ final class EditVideoViewController: UIViewController {
     private var wasPlaying = false
     let player: AVPlayer = AVPlayer()
     let asset: AVAsset
-    let videoQualityPresetName: String
+    let videoQuality: QualityType?
     let maxDuration: CMTime
     
     let exportStatusStackView = UIStackView()
@@ -89,12 +64,12 @@ final class EditVideoViewController: UIViewController {
     
     var videoEditor: VideoEditorController { navigationController as! VideoEditorController }
     
-    init(videoURL: URL, videoQuality: String, videoMaximumDuration: CMTime) {
+    init(videoURL: URL, videoQuality: QualityType?, videoMaximumDuration: CMTime) {
         asset = AVURLAsset(
             url: videoURL,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
-        videoQualityPresetName = videoQuality
+        self.videoQuality = videoQuality
         maxDuration = videoMaximumDuration
         super.init(nibName: nil, bundle: nil)
     }
@@ -274,82 +249,32 @@ final class EditVideoViewController: UIViewController {
     }
     
     var exportTask: Task<Void, any Error>? = nil
-    var exportProgressCancellable: AnyCancellable? = nil
     
     func startExport() {
         guard let asset = player.currentItem?.asset else { return }
-        let session = AVAssetExportSession(
-            asset: asset,
-            presetName: videoQualityPresetName
-        )
+        let session = ExportSession(asset: asset, quality: videoQuality)
         guard let session else { return }
-        
-        let tempDirectory = try! FileManager.default.url(
-            for: .cachesDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let outputURL = tempDirectory.appending(path: "test.mov")
-        try? FileManager.default.removeItem(at: outputURL)
-        session.outputURL = outputURL
-        session.outputFileType = .mp4
-        
-        exportProgressCancellable = session.publisher(for: \.error).compactMap({ $0 }).sink { error in
-            print("error", error)
-        }
-        
         exportTask = Task {
             exportStatusStackView.isHidden = false
             
-            async let exported: () = withTaskCancellationHandler {
-                if session.status != .cancelled {
-                    await session.export()
+            do {
+                for try await progress in session.export() {
+                    print(progress)
+                    exportProgressView.progress = progress
                 }
-            } onCancel: {
-                session.cancelExport()
-            }
-            
-            while [.waiting, .exporting, .unknown].contains(session.status) && session.error == nil {
-                print(session.progress)
-                exportProgressView.progress = session.progress
-                try await Task.sleep(for: .milliseconds(250))
-            }
-            
-            _ = await exported
-            
-            switch session.status {
-            case .unknown:
-                print("unknown")
-            case .waiting:
-                print("waiting")
-            case .exporting:
-                print("exporting")
-            case .completed:
                 videoEditor.editorDelegate?.videoEditorController(
                     videoEditor,
-                    didSaveEditedVideoToPath: outputURL.path(),
+                    didSaveEditedVideoToPath: session.outputURL!.path(),
                     editedRange: trimmer.selectedRange
                 )
-            case .failed:
-                if let error = session.error {
-                    videoEditor.editorDelegate?.videoEditorController(videoEditor, didFailWithError: error)
-                }
-            case .cancelled:
-                print("cancelled")
-            @unknown default:
-                print("default")
+            } catch {
+                videoEditor.editorDelegate?.videoEditorController(videoEditor, didFailWithError: error)
             }
-            
             exportStatusStackView.isHidden = true
         }
     }
 }
 
-final class PlayerView: UIView {
-    override class var layerClass: AnyClass { AVPlayerLayer.self }
-    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
-}
 
 @globalActor
 struct PlayerAssetActor {
