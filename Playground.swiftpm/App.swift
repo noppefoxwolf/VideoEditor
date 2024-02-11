@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 import VideoEditor
 import PhotosUI
 
@@ -87,6 +88,10 @@ extension ViewController: VideoEditorControllerDelegate {
     func videoEditorController(_ editor: VideoEditorController, didSaveEditedVideoToPath editedVideoPath: String, editedRange: CMTimeRange) {
         editor.dismiss(animated: true)
         self.selectedRange = editedRange
+        
+        let vc = AVPlayerViewController()
+        vc.player = AVPlayer(url: URL(filePath: editedVideoPath))
+        present(vc, animated: true)
     }
     
     func videoEditorController(_ editor: VideoEditorController, didFailWithError error: any Error) {
