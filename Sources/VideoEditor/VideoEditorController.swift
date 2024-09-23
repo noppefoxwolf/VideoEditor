@@ -1,4 +1,6 @@
 import UIKit
+@preconcurrency import AVFoundation
+import AVFoundationBackport_iOS17
 
 @MainActor
 public protocol VideoEditorControllerDelegate: AnyObject {
@@ -123,8 +125,8 @@ final class EditVideoViewController: UIViewController {
     private func updatePlayerAsset() async throws {
         let outputRange = try await trimmer.trimmingState == .none ? trimmer.selectedRange : asset.fullRange
         let trimmedAsset = try await asset.trimmedComposition(outputRange)
-        if trimmedAsset != player.currentItem?.asset {
-            player.replaceCurrentItem(with: AVPlayerItem(asset: trimmedAsset))
+        if await trimmedAsset != player.currentItem?.asset {
+            await player.replaceCurrentItem(with: AVPlayerItem(asset: trimmedAsset))
         }
     }
     
@@ -238,30 +240,58 @@ final class EditVideoViewController: UIViewController {
             forInterval: CMTime(value: 1, timescale: 30),
             queue: .main,
             using: { [weak self] time in
-                guard let self else { return }
-                // when we're not trimming, the players starting point is actual later than the trimmer,
-                // (because the vidoe has been trimmed), so we need to account for that.
-                // When we're trimming, we always show the full video
-                let finalTime = self.trimmer.trimmingState == .none ? CMTimeAdd(time, self.trimmer.selectedRange.start) : time
-                self.trimmer.progress = finalTime
+                Task { [weak self] in
+                    await self?.update(time)
+                }
             }
         )
     }
     
+    @MainActor
+    func update(_ time: CMTime) {
+        let finalTime = trimmer.trimmingState == .none ? CMTimeAdd(time, trimmer.selectedRange.start) : time
+        trimmer.progress = finalTime
+    }
+    
+    var progressTask: Task<Void, any Error>? = nil
     var exportTask: Task<Void, any Error>? = nil
     
     func startExport() {
         guard let asset = player.currentItem?.asset else { return }
-        let session = ExportSession(asset: asset, quality: videoQuality)
+        let session = AVAssetExportSession(
+            asset: asset,
+            presetName: videoQuality.assetExportSessionPreset
+        )
         guard let session else { return }
+        
+        progressTask = Task {
+            for try await state in session.states(updateInterval: 0.25) {
+                switch state {
+                case .pending, .waiting:
+                    break
+                case .exporting(let progress):
+                    exportProgressView.progress = Float(progress.fractionCompleted)
+                }
+            }
+        }
+        
         exportTask = Task {
             exportStatusStackView.isHidden = false
-            
             do {
-                for try await progress in session.export() {
-                    print(progress)
-                    exportProgressView.progress = progress
-                }
+                let itemReplacementDirectory = try FileManager.default.url(
+                    for: .itemReplacementDirectory,
+                    in: .userDomainMask,
+                    appropriateFor: FileManager.default.temporaryDirectory,
+                    create: true
+                )
+                let filename = UUID().uuidString
+                let outputURL = itemReplacementDirectory
+                    .appending(path: filename)
+                    .appendingPathExtension(for: session.outputFileType?.utType ?? UTType.mpeg4Movie)
+                try? FileManager.default.removeItem(at: outputURL)
+                
+                try await session.export(to: outputURL, as: .mp4)
+                
                 videoEditor.editorDelegate?.videoEditorController(
                     videoEditor,
                     didSaveEditedVideoToPath: session.outputURL!.path(),
@@ -283,7 +313,7 @@ struct PlayerAssetActor {
     static let shared: ActorType = ActorType()
 }
 
-import AVKit
+@preconcurrency import AVKit
 
 extension AVAsset {
     var fullRange: CMTimeRange {

@@ -7,7 +7,7 @@
 //
 
 import UIKit
-import AVFoundation
+@preconcurrency import AVFoundation
 
 // https://github.com/AndreasVerhoeven/VideoTrimmerControl
 // Controls that allows trimming a range and scrubbing a progress indicator
@@ -179,10 +179,10 @@ final class VideoTrimmer: UIControl {
     
     // gesture recognizers used. Can be used, for instance, to
     // require a tableview panGestureRecognizer to fail
-    private (set) var leadingGestureRecognizer: UILongPressGestureRecognizer!
-    private (set) var trailingGestureRecognizer: UILongPressGestureRecognizer!
-    private (set) var progressGestureRecognizer: UILongPressGestureRecognizer!
-    private (set) var thumbnailInteractionGestureRecognizer: UILongPressGestureRecognizer!
+    private(set) var leadingGestureRecognizer: UILongPressGestureRecognizer!
+    private(set) var trailingGestureRecognizer: UILongPressGestureRecognizer!
+    private(set) var progressGestureRecognizer: UILongPressGestureRecognizer!
+    private(set) var thumbnailInteractionGestureRecognizer: UILongPressGestureRecognizer!
     
     // private stuff
     private var grabberOffset = CGFloat(0)
@@ -389,9 +389,10 @@ final class VideoTrimmer: UIControl {
         stopZoomWaitTimer()
         guard !isZoomedIn else { return }
         zoomWaitTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false, block: { [weak self] _ in
-            guard let self else { return }
-            self.stopZoomWaitTimer()
-            self.zoomIfNeeded()
+            Task { [weak self] in
+                await self?.stopZoomWaitTimer()
+                await self?.zoomIfNeeded()
+            }
         })
     }
     
