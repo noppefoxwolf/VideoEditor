@@ -1,5 +1,5 @@
 import UIKit
-@preconcurrency import AVFoundation
+import AVFoundation
 import AVFoundationBackport_iOS17
 
 @MainActor
