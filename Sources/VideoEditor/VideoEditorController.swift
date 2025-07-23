@@ -10,13 +10,14 @@ public protocol VideoEditorControllerDelegate: AnyObject {
 }
 
 public final class VideoEditorController: UINavigationController {
+    // MARK: - Properties
     public var videoPath: String = ""
     public var videoMaximumDuration: TimeInterval = 600
-    
     public var videoQuality: QualityType? = .typeMedium
     public var initialSelectedRange: CMTimeRange? = nil
     public weak var editorDelegate: (any VideoEditorControllerDelegate)? = nil
     
+    // MARK: - Initialization
     public init() {
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
@@ -26,6 +27,7 @@ public final class VideoEditorController: UINavigationController {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // MARK: - UIViewController
     public override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -40,7 +42,8 @@ public final class VideoEditorController: UINavigationController {
         setViewControllers([vc], animated: false)
     }
     
-    func makeMaxDuration() -> CMTime {
+    // MARK: - Private
+    private func makeMaxDuration() -> CMTime {
         CMTime(seconds: videoMaximumDuration, preferredTimescale: 600)
     }
 }
