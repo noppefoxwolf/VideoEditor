@@ -62,15 +62,15 @@ final class EditVideoViewController: UIViewController {
         view.backgroundColor = .systemBackground
         
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: String(localized: "Cancel", bundle: .main),
+            title: String(localized: "Cancel", bundle: .module),
             primaryAction: UIAction { [unowned self] _ in
                 exportTask?.cancel()
                 videoEditor.editorDelegate?.videoEditorControllerDidCancel(videoEditor)
             }
         )
-        navigationItem.title = String(localized: "Edit Video", bundle: .main)
+        navigationItem.title = String(localized: "Edit Video", bundle: .module)
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: String(localized: "Save", bundle: .main),
+            title: String(localized: "Save", bundle: .module),
             primaryAction: UIAction { [unowned self] _ in
                 startExport()
             }
@@ -100,7 +100,7 @@ final class EditVideoViewController: UIViewController {
     
     private func setupExportStatusView() {
         exportProgressView.progress = 0.0
-        exportStatusLabel.text = String(localized: "Trimming Video…", bundle: .main)
+        exportStatusLabel.text = String(localized: "Trimming Video…", bundle: .module)
         exportStatusLabel.font = .preferredFont(forTextStyle: .footnote)
         exportStatusLabel.textAlignment = .center
         
