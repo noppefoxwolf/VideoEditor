@@ -1,6 +1,5 @@
 import UIKit
 import AVFoundation
-import AVFoundationBackport_iOS17
 
 @MainActor
 public protocol VideoEditorControllerDelegate: AnyObject {

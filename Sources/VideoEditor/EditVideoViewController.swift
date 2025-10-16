@@ -1,6 +1,6 @@
 import Combine
 import UIKit
-@preconcurrency import AVFoundation
+import AVFoundation
 import os
 
 final class EditVideoViewController: UIViewController {
@@ -249,6 +249,8 @@ final class EditVideoViewController: UIViewController {
                     break
                 case .exporting(let progress):
                     exportProgressView.progress = Float(progress.fractionCompleted)
+                @unknown default:
+                    break
                 }
             }
         }
@@ -283,20 +285,12 @@ final class EditVideoViewController: UIViewController {
     }
     
     // MARK: - Private Asset Methods
-    @PlayerAssetActor
+    @MainActor
     private func updatePlayerAsset() async throws {
         let outputRange = try await trimmer.trimmingState == .none ? trimmer.selectedRange : asset.fullRange
         let trimmedAsset = try await asset.trimmedComposition(outputRange)
-        if await trimmedAsset != player.currentItem?.asset {
-            await player.replaceCurrentItem(with: AVPlayerItem(asset: trimmedAsset))
+        if trimmedAsset != player.currentItem?.asset {
+            player.replaceCurrentItem(with: AVPlayerItem(asset: trimmedAsset))
         }
     }
-}
-
-
-@globalActor
-struct PlayerAssetActor {
-    actor ActorType { }
-    
-    static let shared: ActorType = ActorType()
 }

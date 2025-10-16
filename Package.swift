@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,22 +6,16 @@ import PackageDescription
 let package = Package(
     name: "VideoEditor",
     defaultLocalization: "en",
-    platforms: [.iOS(.v17), .visionOS(.v1)],
+    platforms: [.iOS(.v18), .visionOS(.v2)],
     products: [
         .library(
             name: "VideoEditor",
             targets: ["VideoEditor"]
         ),
     ],
-    dependencies: [
-        .package(url: "https://github.com/noppefoxwolf/AVFoundationBackport-iOS17", from: "0.0.1")
-    ],
     targets: [
         .target(
             name: "VideoEditor",
-            dependencies: [
-                "AVFoundationBackport-iOS17"
-            ],
             resources: [
                 .process("Resources")
             ]

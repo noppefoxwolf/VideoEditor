@@ -1,6 +1,7 @@
-@preconcurrency import AVKit
+import AVKit
 
 extension AVAsset {
+    @MainActor
     var fullRange: CMTimeRange {
         get async throws {
             let duration = try await load(.duration)
@@ -8,6 +9,7 @@ extension AVAsset {
         }
     }
     
+    @MainActor
     func trimmedComposition(_ range: CMTimeRange) async throws -> AVAsset {
         let fullRange = try await fullRange
         guard CMTimeRangeEqual(fullRange, range) == false else { return self }
