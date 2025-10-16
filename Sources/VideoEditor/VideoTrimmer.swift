@@ -7,7 +7,7 @@
 //
 
 import UIKit
-@preconcurrency import AVFoundation
+import AVFoundation
 
 // https://github.com/AndreasVerhoeven/VideoTrimmerControl
 // Controls that allows trimming a range and scrubbing a progress indicator
