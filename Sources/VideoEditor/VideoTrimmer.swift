@@ -8,6 +8,7 @@
 
 import UIKit
 import AVFoundation
+import os
 
 // https://github.com/AndreasVerhoeven/VideoTrimmerControl
 // Controls that allows trimming a range and scrubbing a progress indicator
@@ -198,6 +199,11 @@ final class VideoTrimmer: UIControl {
     let selectionFeedbackGenerator = UISelectionFeedbackGenerator()
     let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .heavy)
     #endif
+
+    let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: #file
+    )
     
     private var didClampWhilePanning = false
     
@@ -308,13 +314,13 @@ final class VideoTrimmer: UIControl {
         
         var newThumbnails = Array<Thumbnail>()
         let thumbnailDuration = visibleRange.duration.seconds / Double(numberOfThumbnails)
-        var times = Array<NSValue>()
+        var times: [CMTime] = []
         // we add some extra thumbnails as padding
         let assetDuration = try await asset.load(.duration)
         for index in -3..<numberOfThumbnails + 6 {
             let time = CMTimeAdd(visibleRange.start, CMTime(seconds: thumbnailDuration * Double(index), preferredTimescale: assetDuration.timescale * 2))
             guard CMTimeCompare(time, .zero) != -1 else {continue}
-            times.append(NSValue(time: time))
+            times.append(time)
             
             let newThumbnail = Thumbnail(imageView: UIImageView(), time: time)
             self.thumbnailTrackView.addSubview(newThumbnail.imageView)
@@ -342,17 +348,20 @@ final class VideoTrimmer: UIControl {
         var seenIndex = 0
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
-        generator.generateCGImagesAsynchronously(forTimes: times) { requestedTime, cgImage, actualTime, result, error in
-            DispatchQueue.main.async {
-                seenIndex += 1
-                
-                guard let cgImage = cgImage else { return }
+        let images = generator.images(for: times)
+        for await image in images {
+            seenIndex += 1
+            
+            do {
+                let cgImage = try image.image
                 let image = UIImage(cgImage: cgImage)
                 
                 let imageView = newThumbnails[seenIndex - 1].imageView
                 UIView.transition(with: imageView, duration: 0.25, options: [.transitionCrossDissolve], animations: {
                     imageView.image = image
                 })
+            } catch {
+                logger.debug("\(error)")
             }
         }
     }
